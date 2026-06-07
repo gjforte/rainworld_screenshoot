@@ -67,6 +67,9 @@
           DestinationFolder="$(ModInstallDir)\plugins" />
     <Copy SourceFiles="modinfo.json"
           DestinationFolder="$(ModInstallDir)" />
+    <Copy SourceFiles="thumbnail.png"
+          DestinationFolder="$(ModInstallDir)"
+          Condition="Exists('thumbnail.png')" />
   </Target>
 
 </Project>
