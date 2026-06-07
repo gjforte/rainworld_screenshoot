@@ -250,11 +250,68 @@ namespace Screenshoot
 
             long total = (long)cw * ch;
             long gaps = total - covered;
-            // Transparent gaps mean adjacent cameras are spaced further apart than the
-            // on-screen width (ScreenSize) covers. If this is non-trivial, the fix is to
-            // capture the full 1400x800 level texture per camera (offscreen RT) instead.
+
+            // The cameras don't tile into a perfect rectangle (their CamPos differ by a
+            // few px between rows/columns), so the bounding-box canvas has thin see-through
+            // slivers around the edges — which render as white in image viewers. Fill them
+            // from the nearest covered pixel so the output is a clean, fully-opaque image.
+            // (Large interior gaps from wide camera spacing would also be filled here, but
+            // crudely; that case still wants the offscreen-RT full-texture capture.)
+            int filled = FillUncovered(canvas, cw, ch);
+
             log.LogInfo($"Screenshoot: canvas {cw}x{ch}, uncovered (transparent) pixels: " +
-                        $"{gaps} ({100f * gaps / total:0.00}%).");
+                        $"{gaps} ({100f * gaps / total:0.00}%) — filled {filled} edge pixels.");
+        }
+
+        // Dilate opaque pixels inward to cover transparent ones; force the rest opaque.
+        private static int FillUncovered(Color32[] canvas, int cw, int ch)
+        {
+            var opaque = new bool[canvas.Length];
+            int remaining = 0;
+            for (int i = 0; i < canvas.Length; i++)
+            {
+                opaque[i] = canvas[i].a > 0;
+                if (!opaque[i]) remaining++;
+            }
+            int total = remaining;
+
+            // One pixel of growth per pass; slivers are only a few px, so this converges fast.
+            for (int pass = 0; pass < 16 && remaining > 0; pass++)
+            {
+                bool filledAny = false;
+                for (int y = 0; y < ch; y++)
+                {
+                    int row = y * cw;
+                    for (int x = 0; x < cw; x++)
+                    {
+                        int idx = row + x;
+                        if (opaque[idx]) continue;
+                        // Read neighbours from the pre-pass snapshot so fills don't smear sideways.
+                        int src = -1;
+                        if (x > 0 && opaque[idx - 1]) src = idx - 1;
+                        else if (x < cw - 1 && opaque[idx + 1]) src = idx + 1;
+                        else if (y > 0 && opaque[idx - cw]) src = idx - cw;
+                        else if (y < ch - 1 && opaque[idx + cw]) src = idx + cw;
+                        if (src >= 0)
+                        {
+                            Color32 c = canvas[src];
+                            c.a = 255;
+                            canvas[idx] = c;
+                            filledAny = true;
+                            remaining--;
+                        }
+                    }
+                }
+                if (!filledAny) break;
+                for (int i = 0; i < canvas.Length; i++) opaque[i] = canvas[i].a > 0;
+            }
+
+            // Safety: anything still uncovered (e.g. a fully-empty row) becomes opaque black,
+            // never transparent — so it can't show up white in a viewer.
+            for (int i = 0; i < canvas.Length; i++)
+                if (canvas[i].a == 0) canvas[i] = new Color32(0, 0, 0, 255);
+
+            return total;
         }
 
         // True if frame `me` is the nearest-centered frame that covers (px,py).
@@ -333,7 +390,9 @@ namespace Screenshoot
 
         private static void SavePng(Color32[] px, int w, int h, string path)
         {
-            var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+            // RGB24 (no alpha) — our images are fully opaque, and dropping alpha means no
+            // viewer can ever render a stray transparent pixel as white.
+            var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
             tex.SetPixels32(px);
             tex.Apply();
             byte[] png = tex.EncodeToPNG();
