@@ -10,6 +10,10 @@ twice (doubled/ghosted). Screenshoot instead assigns **every output pixel to exa
 camera** — the nearest camera (by center) that actually covers it. That puts a clean, hard
 seam down the middle of each overlap, with nothing duplicated.
 
+![Full-room screenshot of a room stitched from its four cameras](docs/example.png)
+
+*A whole room (UW_D04) captured in one image — stitched from its four overlapping cameras.*
+
 ## Usage
 
 In-game, while in a room, press **F10** to capture a full-room screenshot of the current
@@ -66,4 +70,8 @@ See [`CLAUDE.md`](CLAUDE.md) for the full architecture and internals.
 
 ## License
 
-No license specified yet. Mod ID `tr0z.screenshoot`. Targets Rain World v1.9.x.
+[MIT](LICENSE) © 2026 tr0z. Mod ID `tr0z.screenshoot`. Targets Rain World v1.9.x.
+
+This license covers the mod's own source. It does not cover Rain World's assets or
+assemblies; the decompiled game references used during development are gitignored and not
+part of this repository.
