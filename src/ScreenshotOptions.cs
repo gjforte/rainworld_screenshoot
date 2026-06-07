@@ -14,11 +14,13 @@ namespace Screenshoot
 
         public ScreenshotOptions()
         {
+            // Clean mode (geometry-only) is still WIP and intentionally not surfaced in
+            // the UI or description. The binding stays so F9 keeps working for testing.
             CleanModeKey = config.Bind("CleanModeKey", KeyCode.F9,
-                new ConfigurableInfo("Hotkey: full-room screenshot of geometry only (no creatures, player, HUD)."));
+                new ConfigurableInfo("(experimental) geometry-only capture."));
 
             LiveModeKey = config.Bind("LiveModeKey", KeyCode.F10,
-                new ConfigurableInfo("Hotkey: full-room screenshot of the live scene (creatures, player, weather), HUD hidden."));
+                new ConfigurableInfo("Hotkey: full-room screenshot of the current room (HUD hidden)."));
 
             SettleFrames = config.Bind("SettleFrames", 3,
                 new ConfigurableInfo("Frames to wait after switching to each camera before grabbing it. " +
@@ -48,13 +50,8 @@ namespace Screenshoot
             y -= 44f;
 
             tab.AddItems(
-                new OpKeyBinder(CleanModeKey, new Vector2(x, y), new Vector2(120f, 30f)),
-                new OpLabel(x + 140f, y + 6f, "Clean shot (geometry only)"));
-            y -= 44f;
-
-            tab.AddItems(
                 new OpKeyBinder(LiveModeKey, new Vector2(x, y), new Vector2(120f, 30f)),
-                new OpLabel(x + 140f, y + 6f, "Live shot (creatures + player)"));
+                new OpLabel(x + 140f, y + 6f, "Full-room screenshot"));
             y -= 50f;
 
             tab.AddItems(
