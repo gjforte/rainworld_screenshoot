@@ -1,0 +1,69 @@
+# Screenshoot
+
+A [Rain World](https://store.steampowered.com/app/312520/Rain_World/) mod that stitches
+**every camera in the current room into one seamless full-room screenshot** — with the
+camera overlaps handled correctly, so there's no doubling or ghosting at the seams.
+
+Rain World rooms are made of several overlapping camera views. Naive screenshot stitchers
+paste each camera's whole frame on top of the next, so anything in an overlap gets drawn
+twice (doubled/ghosted). Screenshoot instead assigns **every output pixel to exactly one
+camera** — the nearest camera (by center) that actually covers it. That puts a clean, hard
+seam down the middle of each overlap, with nothing duplicated.
+
+## Usage
+
+In-game, while in a room, press **F10** to capture a full-room screenshot of the current
+room (the HUD is hidden automatically). PNGs are saved to
+`Pictures\Rain World Screenshots\` by default.
+
+The hotkey, output folder, capture quality (settle frames), and a debug per-frame dump are
+all configurable in the **Remix** mod options menu.
+
+## Install
+
+**Steam Workshop:** subscribe (search "Screenshoot"), or publish/upload via the in-game
+Remix menu.
+
+**Manual:** download [`screenshoot.zip`](screenshoot.zip), and extract its contents into
+
+```
+Rain World/RainWorld_Data/StreamingAssets/mods/screenshoot/
+```
+
+so that `modinfo.json` sits directly in that folder. Then enable **Screenshoot** in the
+Remix menu. Requires BepInEx (bundled with Rain World's Downpour/Remix).
+
+## Build from source
+
+Requires the .NET SDK and a Rain World install at
+`C:\Program Files (x86)\Steam\steamapps\common\Rain World` (edit `Screenshoot.csproj` if
+yours differs).
+
+```
+dotnet build
+```
+
+The build copies the DLL, `modinfo.json`, and `thumbnail.png` straight into the mod folder.
+
+## How it works
+
+Per camera position in the room, the mod drives the game's camera there, lets it render,
+and reads back the frame; it then composites all frames in world space using the
+nearest-covering-camera rule above. It reads the rendered output (not the raw level
+texture, which is palette-encoded) so palettes, depth shading and lighting come out right.
+
+A note on parallax: Rain World bakes per-camera depth displacement into the room art, so a
+deep object genuinely sits at slightly different positions in two overlapping cameras. The
+midline seam minimizes this discontinuity but can't fully remove it — that's inherent to
+the art, not a bug.
+
+See [`CLAUDE.md`](CLAUDE.md) for the full architecture and internals.
+
+## Status
+
+- **Full-room screenshot (F10):** working.
+- **Clean / geometry-only mode:** experimental, not yet exposed — work in progress.
+
+## License
+
+No license specified yet. Mod ID `tr0z.screenshoot`. Targets Rain World v1.9.x.
