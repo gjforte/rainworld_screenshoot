@@ -16,11 +16,14 @@ seam down the middle of each overlap, with nothing duplicated.
 
 ## Usage
 
-In-game, while in a room, press **F10** to capture a full-room screenshot of the current
-room (the HUD is hidden automatically). PNGs are saved to
-`Pictures\Rain World Screenshots\` by default.
+In-game, while in a room:
 
-The hotkey, output folder, capture quality (settle frames), and a debug per-frame dump are
+- **F9** — clean shot: just the room geometry (creatures, player and HUD hidden).
+- **F10** — live shot: the full scene (creatures, player, weather), HUD hidden.
+
+PNGs are saved to `Pictures\Rain World Screenshots\` by default.
+
+The hotkeys, output folder, capture quality (settle frames), and a debug per-frame dump are
 all configurable in the **Remix** mod options menu.
 
 ## Install
@@ -65,8 +68,7 @@ See [`CLAUDE.md`](CLAUDE.md) for the full architecture and internals.
 
 ## Status
 
-- **Full-room screenshot (F10):** working.
-- **Clean / geometry-only mode:** experimental, not yet exposed — work in progress.
+Working: both the live full-room screenshot (F10) and the clean geometry-only shot (F9).
 
 ## License
 

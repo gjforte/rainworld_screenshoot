@@ -27,12 +27,15 @@ assumed to be `C:\Program Files (x86)\Steam\steamapps\common\Rain World`.
 ## Usage
 
 In-game, in a room:
-- **F10** — full-room screenshot of the current room (HUD hidden, scene intact).
-- **F9** — *(experimental, not advertised)* geometry-only "clean" shot. Still WIP, so it
-  is deliberately omitted from the Remix menu and the modinfo description. The binding and
-  code remain so it can be tested/fixed; don't promote it until it works.
+- **F9** — clean shot (room geometry only; creatures, player and HUD hidden).
+- **F10** — live shot (creatures, player, weather; only the HUD is hidden).
 
-Configurable in the Remix options menu (key, settle frames, output folder, debug dump).
+Clean mode hides every sprite in the camera's render layers except the baked
+`levelGraphic`/`backgroundGraphic` (see `SetRoomObjectsVisible`) — walking the Futile
+layers rather than `spriteLeasers`, because the player and some cosmetic sprites render on
+paths that aren't standard leasers and would otherwise leak through.
+
+Configurable in the Remix options menu (keys, settle frames, output folder, debug dump).
 Output defaults to `Pictures\Rain World Screenshots\`. The absolute path is logged.
 
 ## Architecture
