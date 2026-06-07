@@ -37,6 +37,7 @@ namespace Screenshoot
 
         public static IEnumerator Run(RainWorldGame game, bool cleanMode)
         {
+            ScreenshotPlugin.CleanMode = cleanMode;
             ScreenshotPlugin.Capturing = true;
 
             RoomCamera cam = game.cameras[0];
@@ -66,13 +67,10 @@ namespace Screenshoot
                     ApplyIfReady(cam);
 
                     // Let GrafUpdate redraw the level/background/lightmap at the new
-                    // position for a few frames so the screen actually shows it.
+                    // position for a few frames so the screen actually shows it. The
+                    // DrawUpdate hook hides HUD/sprites each of these frames.
                     for (int s = 0; s < settle; s++)
-                    {
-                        SetSceneHidden(cam, cleanMode);
                         yield return null;
-                    }
-                    SetSceneHidden(cam, cleanMode);
 
                     // Read the back buffer only after the frame has finished rendering.
                     yield return new WaitForEndOfFrame();
@@ -93,11 +91,14 @@ namespace Screenshoot
             }
             finally
             {
-                // Always restore the game to a sane state, even if capture threw.
-                RestoreScene(cam);
+                // Stop the DrawUpdate hook from hiding anything further, then restore.
+                ScreenshotPlugin.Capturing = false;
+                // The hook hid the HUD container (isVisible=false) every frame and
+                // nothing turns it back on, so explicitly restore every camera.
+                for (int c = 0; c < game.cameras.Length; c++)
+                    if (game.cameras[c] != null) RestoreScene(game.cameras[c]);
                 cam.MoveCamera(originalPos);
                 ApplyIfReady(cam);
-                ScreenshotPlugin.Capturing = false;
             }
 
             if (failure != null)
@@ -283,7 +284,9 @@ namespace Screenshoot
 
         // ---- scene hiding -------------------------------------------------------
 
-        private static void SetSceneHidden(RoomCamera cam, bool cleanMode)
+        // Called from the RoomCamera.DrawUpdate hook every frame during a capture,
+        // after the game has drawn its sprites — so the hide sticks through render.
+        internal static void ApplyHiding(RoomCamera cam, bool cleanMode)
         {
             SetHud(cam, false);
             if (cleanMode) SetSpritesVisible(cam, false);

@@ -20,6 +20,10 @@ namespace Screenshoot
         // ignore further hotkey presses until the run finishes).
         public static bool Capturing;
 
+        // Set for the duration of a run. When true, the DrawUpdate hook also hides
+        // creatures/player/items so only the room art is captured.
+        public static bool CleanMode;
+
         private bool _initialized;
 
         public void OnEnable()
@@ -47,6 +51,16 @@ namespace Screenshoot
             {
                 if (Capturing) return;
                 orig(cam);
+            };
+
+            // Hide the HUD (and, in clean mode, all creatures/player/items) AFTER the
+            // game's graphics pass positions and draws everything, so the hiding wins
+            // the race against rendering. Doing this from the capture coroutine instead
+            // loses, because DrawUpdate re-shows the sprites every frame.
+            On.RoomCamera.DrawUpdate += (orig, cam, timeStacker, timeSpeed) =>
+            {
+                orig(cam, timeStacker, timeSpeed);
+                if (Capturing) ScreenshotCapture.ApplyHiding(cam, CleanMode);
             };
 
             Logger.LogInfo("Screenshoot loaded!");
