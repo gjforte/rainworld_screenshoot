@@ -346,13 +346,13 @@ namespace Screenshoot
         internal static void ApplyHiding(RoomCamera cam, bool cleanMode)
         {
             SetHud(cam, false);
-            if (cleanMode) SetSpritesVisible(cam, false);
+            if (cleanMode) SetRoomObjectsVisible(cam, false);
         }
 
         private static void RestoreScene(RoomCamera cam)
         {
             SetHud(cam, true);
-            SetSpritesVisible(cam, true);
+            SetRoomObjectsVisible(cam, true);
         }
 
         private static void SetHud(RoomCamera cam, bool visible)
@@ -363,18 +363,34 @@ namespace Screenshoot
             if (hud2 != null) hud2.isVisible = visible;
         }
 
-        // The level/background graphics are direct camera sprites, not sprite
-        // leasers, so hiding all leasers removes creatures/player/items/rain drops
-        // while leaving the room art intact.
-        private static void SetSpritesVisible(RoomCamera cam, bool visible)
+        // Hide (or restore) every sprite in the camera's render layers EXCEPT the baked
+        // level and background art, leaving a geometry-only image.
+        //
+        // We walk the actual Futile layer children rather than cam.spriteLeasers because
+        // the leaser list missed things — the player and some cosmetic/background sprites
+        // are drawn on paths that didn't show up as standard leasers, so they survived
+        // into 'clean' shots. Enumerating the layers themselves catches everything that
+        // actually renders, so nothing leaks through.
+        private static void SetRoomObjectsVisible(RoomCamera cam, bool visible)
         {
-            if (cam.spriteLeasers == null) return;
-            for (int i = 0; i < cam.spriteLeasers.Count; i++)
+            FContainer[] layers = cam.SpriteLayers;
+            if (layers == null) return;
+
+            FNode keepLevel = cam.levelGraphic;
+            FNode keepBg = cam.backgroundGraphic;
+
+            for (int l = 0; l < layers.Length; l++)
             {
-                var sl = cam.spriteLeasers[i];
-                if (sl?.sprites == null) continue;
-                for (int s = 0; s < sl.sprites.Length; s++)
-                    if (sl.sprites[s] != null) sl.sprites[s].isVisible = visible;
+                FContainer layer = layers[l];
+                if (layer == null) continue;
+                int n = layer.GetChildCount();
+                for (int i = 0; i < n; i++)
+                {
+                    FNode node = layer.GetChildAt(i);
+                    if (node == null) continue;
+                    // Always keep the room art visible; toggle everything else.
+                    node.isVisible = (node == keepLevel || node == keepBg) ? true : visible;
+                }
             }
         }
 
