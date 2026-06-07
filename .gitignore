@@ -1,0 +1,5 @@
+bin/
+obj/
+.scratch/
+.scratch_custom/
+*.user

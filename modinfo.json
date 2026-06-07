@@ -1,0 +1,9 @@
+{
+    "id": "tr0z.screenshoot",
+    "name": "Screenshoot",
+    "version": "0.1.0",
+    "author": "tr0z",
+    "description": "Stitches every camera in the current room into a single full-room screenshot. Each output pixel is taken from exactly one camera (the nearest one that covers it), so there are no doubled/ghosted elements at camera overlaps. Clean mode (geometry only) and live mode (with creatures, player, weather).",
+    "target_game_version": "v1.9.15",
+    "requirements": []
+}
