@@ -400,8 +400,36 @@ namespace Screenshoot
         {
             string custom = ScreenshotPlugin.Options.OutputDir.Value;
             if (!string.IsNullOrEmpty(custom)) return custom;
+            return Path.Combine(PicturesDir(), "Rain World Screenshots");
+        }
+
+        // Resolve a stable, absolute Pictures folder across Windows and Linux.
+        //
+        // On Linux under Mono, GetFolderPath(MyPictures) is unreliable: when XDG user
+        // dirs aren't configured it returns "" (or sometimes $HOME). An empty/relative
+        // result would make the save path relative to the game's working directory,
+        // which differs depending on how the game was launched — the inconsistency we
+        // saw on Linux. So we only trust MyPictures when it's a non-empty absolute path,
+        // and otherwise fall back through $HOME/Pictures, $HOME, then MyDocuments.
+        private static string PicturesDir()
+        {
             string pics = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
-            return Path.Combine(pics, "Rain World Screenshots");
+            if (!string.IsNullOrEmpty(pics) && Path.IsPathRooted(pics))
+                return pics;
+
+            string home = Environment.GetEnvironmentVariable("HOME")            // Linux/macOS
+                          ?? Environment.GetEnvironmentVariable("USERPROFILE");  // Windows fallback
+            if (!string.IsNullOrEmpty(home) && Path.IsPathRooted(home))
+            {
+                string homePics = Path.Combine(home, "Pictures");
+                return Directory.Exists(homePics) ? homePics : home;
+            }
+
+            string docs = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
+            if (!string.IsNullOrEmpty(docs) && Path.IsPathRooted(docs))
+                return docs;
+
+            return Directory.GetCurrentDirectory();
         }
 
         private static void SavePng(Color32[] px, int w, int h, string path)
