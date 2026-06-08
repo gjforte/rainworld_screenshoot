@@ -21,7 +21,7 @@ In-game, while in a room:
 - **F9** — clean shot: just the room geometry (creatures, player and HUD hidden).
 - **F10** — live shot: the full scene (creatures, player, weather), HUD hidden.
 
-PNGs are saved to `Pictures\Rain World Screenshots\` by default.
+PNGs are saved to `Pictures\screenshots\` by default.
 
 The hotkeys, output folder, capture quality (settle frames), and a debug per-frame dump are
 all configurable in the **Remix** mod options menu.

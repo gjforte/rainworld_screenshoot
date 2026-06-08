@@ -36,7 +36,9 @@ layers rather than `spriteLeasers`, because the player and some cosmetic sprites
 paths that aren't standard leasers and would otherwise leak through.
 
 Configurable in the Remix options menu (keys, settle frames, output folder, debug dump).
-Output defaults to `Pictures\Rain World Screenshots\`. The absolute path is logged.
+Output defaults to `Pictures\screenshots\` (resolved robustly across Windows/Linux; falls
+back to `RainWorld_Data\screenshots` if no Pictures/home folder is findable). The absolute
+path is logged.
 
 ## Architecture
 

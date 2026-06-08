@@ -400,7 +400,7 @@ namespace Screenshoot
         {
             string custom = ScreenshotPlugin.Options.OutputDir.Value;
             if (!string.IsNullOrEmpty(custom)) return custom;
-            return Path.Combine(PicturesDir(), "Rain World Screenshots");
+            return Path.Combine(PicturesDir(), "screenshots");
         }
 
         // Resolve a stable, absolute Pictures folder across Windows and Linux.
@@ -428,6 +428,13 @@ namespace Screenshoot
             string docs = Environment.GetFolderPath(Environment.SpecialFolder.Personal);
             if (!string.IsNullOrEmpty(docs) && Path.IsPathRooted(docs))
                 return docs;
+
+            // Last resort before cwd: drop alongside the game install. Application.dataPath
+            // points at the RainWorld_Data folder on a standalone build, which is always a
+            // findable, writable absolute path.
+            string data = Application.dataPath;
+            if (!string.IsNullOrEmpty(data) && Directory.Exists(data))
+                return data;
 
             return Directory.GetCurrentDirectory();
         }

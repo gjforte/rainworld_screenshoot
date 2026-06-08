@@ -26,7 +26,7 @@ namespace Screenshoot
                     new ConfigAcceptableRange<int>(1, 20)));
 
             OutputDir = config.Bind("OutputDir", "",
-                new ConfigurableInfo("Folder to save PNGs in. Leave blank for Pictures\\Rain World Screenshots."));
+                new ConfigurableInfo("Folder to save PNGs in. Leave blank for Pictures\\screenshots."));
 
             DebugDumpFrames = config.Bind("DebugDumpFrames", false,
                 new ConfigurableInfo("Also save each individual camera frame next to the stitched image (for diagnosing seams)."));
@@ -67,7 +67,7 @@ namespace Screenshoot
                 new OpLabel(x + 30f, y + 2f, "Dump individual camera frames (debug)"));
             y -= 44f;
 
-            tab.AddItems(new OpLabel(x, y, "Output folder (blank = Pictures\\Rain World Screenshots):"));
+            tab.AddItems(new OpLabel(x, y, "Output folder (blank = Pictures\\screenshots):"));
             y -= 30f;
             tab.AddItems(new OpTextBox(OutputDir, new Vector2(x, y), 520f));
         }
