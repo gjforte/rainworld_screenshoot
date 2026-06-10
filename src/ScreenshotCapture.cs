@@ -93,8 +93,9 @@ namespace Screenshoot
             {
                 // Stop the DrawUpdate hook from hiding anything further, then restore.
                 ScreenshotPlugin.Capturing = false;
-                // The hook hid the HUD container (isVisible=false) every frame and
-                // nothing turns it back on, so explicitly restore every camera.
+                // The hook hid the HUD container (isVisible=false) every frame and nothing
+                // turns it back on, so explicitly restore. RestoreScene now re-shows only the
+                // nodes we actually hid (see _hiddenNodes), not a blanket show-everything.
                 for (int c = 0; c < game.cameras.Length; c++)
                     if (game.cameras[c] != null) RestoreScene(game.cameras[c]);
                 cam.MoveCamera(originalPos);
@@ -341,18 +342,69 @@ namespace Screenshoot
 
         // ---- scene hiding -------------------------------------------------------
 
+        // Exactly the Futile nodes we hid during the current capture (clean mode). We
+        // restore THESE and only these afterward — never a blanket "show everything",
+        // which would also reveal sprites the game deliberately keeps hidden (e.g. a
+        // full-screen black effect overlay) and black out the world.
+        private static readonly HashSet<FNode> _hiddenNodes = new HashSet<FNode>();
+
+        // Reused each frame: the set of camera sprite-layer containers to never hide.
+        private static readonly HashSet<FNode> _keepLayers = new HashSet<FNode>();
+
         // Called from the RoomCamera.DrawUpdate hook every frame during a capture,
         // after the game has drawn its sprites — so the hide sticks through render.
         internal static void ApplyHiding(RoomCamera cam, bool cleanMode)
         {
             SetHud(cam, false);
-            if (cleanMode) SetRoomObjectsVisible(cam, false);
+            if (cleanMode) HideRoomObjects(cam);
+            // Always (both modes): hide loose UI overlays attached directly to the stage.
+            HideLooseStageOverlays(cam);
+        }
+
+        // Some mods (e.g. "The Orphans" co-op player tags) attach labels/sprites directly to
+        // the Futile stage, OUTSIDE any camera's sprite layers — so the per-layer hiding above
+        // never sees them and they leak into shots. Hide every currently-visible loose stage
+        // child that isn't one of the cameras' own sprite-layer containers (which hold the room
+        // itself), tracking them so RestoreScene puts back exactly that set. These are UI, like
+        // the HUD, so we suppress them in both clean and live modes.
+        private static void HideLooseStageOverlays(RoomCamera cam)
+        {
+            FContainer stage = Futile.stage;
+            if (stage == null) return;
+
+            // Never hide the room: collect every camera's sprite-layer containers.
+            _keepLayers.Clear();
+            RoomCamera[] cams = cam.game != null ? cam.game.cameras : null;
+            if (cams != null)
+                foreach (RoomCamera rc in cams)
+                {
+                    if (rc == null || rc.SpriteLayers == null) continue;
+                    foreach (FContainer ly in rc.SpriteLayers)
+                        if (ly != null) _keepLayers.Add(ly);
+                }
+
+            int n = stage.GetChildCount();
+            for (int i = 0; i < n; i++)
+            {
+                FNode node = stage.GetChildAt(i);
+                if (node == null || _keepLayers.Contains(node)) continue;
+                if (node.isVisible)
+                {
+                    node.isVisible = false;
+                    _hiddenNodes.Add(node);
+                }
+            }
         }
 
         private static void RestoreScene(RoomCamera cam)
         {
             SetHud(cam, true);
-            SetRoomObjectsVisible(cam, true);
+            // Re-show only what we actually hid. Setting it true is safe even if a node was
+            // since removed from its container (isVisible is just a flag); the game re-asserts
+            // per-frame culling on the next DrawUpdate anyway.
+            foreach (FNode node in _hiddenNodes)
+                if (node != null) node.isVisible = true;
+            _hiddenNodes.Clear();
         }
 
         private static void SetHud(RoomCamera cam, bool visible)
@@ -363,15 +415,19 @@ namespace Screenshoot
             if (hud2 != null) hud2.isVisible = visible;
         }
 
-        // Hide (or restore) every sprite in the camera's render layers EXCEPT the baked
-        // level and background art, leaving a geometry-only image.
+        // Hide every CURRENTLY-VISIBLE sprite in the camera's render layers except the baked
+        // level and background art, leaving a geometry-only image — and remember each one so
+        // RestoreScene can put back exactly that set.
         //
-        // We walk the actual Futile layer children rather than cam.spriteLeasers because
-        // the leaser list missed things — the player and some cosmetic/background sprites
-        // are drawn on paths that didn't show up as standard leasers, so they survived
-        // into 'clean' shots. Enumerating the layers themselves catches everything that
-        // actually renders, so nothing leaks through.
-        private static void SetRoomObjectsVisible(RoomCamera cam, bool visible)
+        // We walk the actual Futile layer children rather than cam.spriteLeasers because the
+        // leaser list missed things — the player and some cosmetic/background sprites are drawn
+        // on paths that didn't show up as standard leasers, so they survived into 'clean' shots.
+        // Enumerating the layers themselves catches everything that actually renders.
+        //
+        // Hiding only the already-visible nodes (and tracking them) is what makes the restore
+        // exact: nodes the game kept invisible are never touched, so we can't accidentally
+        // un-hide an effect overlay and black out the world.
+        private static void HideRoomObjects(RoomCamera cam)
         {
             FContainer[] layers = cam.SpriteLayers;
             if (layers == null) return;
@@ -387,9 +443,12 @@ namespace Screenshoot
                 for (int i = 0; i < n; i++)
                 {
                     FNode node = layer.GetChildAt(i);
-                    if (node == null) continue;
-                    // Always keep the room art visible; toggle everything else.
-                    node.isVisible = (node == keepLevel || node == keepBg) ? true : visible;
+                    if (node == null || node == keepLevel || node == keepBg) continue;
+                    if (node.isVisible)
+                    {
+                        node.isVisible = false;
+                        _hiddenNodes.Add(node);
+                    }
                 }
             }
         }

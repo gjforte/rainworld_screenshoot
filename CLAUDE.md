@@ -30,10 +30,17 @@ In-game, in a room:
 - **F9** — clean shot (room geometry only; creatures, player and HUD hidden).
 - **F10** — live shot (creatures, player, weather; only the HUD is hidden).
 
-Clean mode hides every sprite in the camera's render layers except the baked
-`levelGraphic`/`backgroundGraphic` (see `SetRoomObjectsVisible`) — walking the Futile
-layers rather than `spriteLeasers`, because the player and some cosmetic sprites render on
-paths that aren't standard leasers and would otherwise leak through.
+Clean mode hides every currently-visible sprite in the camera's render layers except the
+baked `levelGraphic`/`backgroundGraphic` (see `HideRoomObjects`) — walking the Futile layers
+rather than `spriteLeasers`, because the player and some cosmetic sprites render on paths
+that aren't standard leasers and would otherwise leak through. Both modes also hide loose UI
+overlays attached directly to `Futile.stage` (outside the camera's sprite layers) — e.g. mod
+co-op player tags like *The Orphans*' "Orphan1/2" labels — via `HideLooseStageOverlays`.
+
+Hiding is **surgical and reversible**: we record exactly the nodes we hid (`_hiddenNodes`,
+only ones that were visible) and `RestoreScene` re-shows only those. A blanket
+"show-everything" restore is what previously blacked the screen (it un-hid a full-screen
+effect overlay the game keeps hidden, painting over the world while the HUD stayed on top).
 
 Configurable in the Remix options menu (keys, settle frames, output folder, debug dump).
 Output defaults to `Pictures\screenshots\` (resolved robustly across Windows/Linux; falls

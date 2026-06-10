@@ -9,7 +9,7 @@ namespace Screenshoot
     {
         public const string MOD_ID = "tr0z.screenshoot";
         public const string MOD_NAME = "Screenshoot";
-        public const string MOD_VERSION = "1.0.3";
+        public const string MOD_VERSION = "1.0.4";
 
         public static ScreenshotPlugin Instance;
         public static ScreenshotOptions Options;
