@@ -1,7 +1,7 @@
 {
     "id": "tr0z.screenshoot",
     "name": "Screenshoot",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "author": "tr0z",
     "description": "Press a key to stitch every camera in the current room into one seamless full-room screenshot. Unlike naive stitchers, each pixel comes from exactly one camera (the nearest that covers it), so there is no doubling or ghosting where cameras overlap. Two modes: a clean shot of just the room geometry (no creatures, player or HUD), or a live shot of the full scene (creatures, player, weather) with the HUD hidden. Hotkeys, output folder and quality are configurable in the Remix menu.",
     "target_game_version": "v1.9.15",

@@ -7,8 +7,10 @@ camera overlaps handled correctly, so there's no doubling or ghosting at the sea
 Rain World rooms are made of several overlapping camera views. Naive screenshot stitchers
 paste each camera's whole frame on top of the next, so anything in an overlap gets drawn
 twice (doubled/ghosted). Screenshoot instead assigns **every output pixel to exactly one
-camera** — the nearest camera (by center) that actually covers it. That puts a clean, hard
-seam down the middle of each overlap, with nothing duplicated.
+camera**, with nothing duplicated. Within each overlap it routes the camera-to-camera seam
+along a **minimum-error path** — the cut follows pixels where the two cameras agree (sky,
+flat ground) and detours around foreground objects where they don't — so the seam lands
+where it's least visible instead of slicing straight through a plant.
 
 ![Full-room screenshot of a room stitched from its four cameras](docs/example.png)
 
@@ -55,14 +57,17 @@ The build copies the DLL, `modinfo.json`, and `thumbnail.png` straight into the 
 ## How it works
 
 Per camera position in the room, the mod drives the game's camera there, lets it render,
-and reads back the frame; it then composites all frames in world space using the
-nearest-covering-camera rule above. It reads the rendered output (not the raw level
-texture, which is palette-encoded) so palettes, depth shading and lighting come out right.
+and reads back the frame; it then composites all frames in world space. Each pixel starts
+assigned to its nearest covering camera, then every overlap boundary is rerouted along a
+minimum-error seam (a dynamic program over how much the two cameras disagree). It reads the
+rendered output (not the raw level texture, which is palette-encoded) so palettes, depth
+shading and lighting come out right.
 
 A note on parallax: Rain World bakes per-camera depth displacement into the room art, so a
 deep object genuinely sits at slightly different positions in two overlapping cameras. The
-midline seam minimizes this discontinuity but can't fully remove it — that's inherent to
-the art, not a bug.
+seam routing hides this by cutting where the cameras match, but it can't change the art —
+in a perfectly uniform region (e.g. a flat-lit wall) a faint tonal hairline along the seam
+can remain. That's inherent to the baked art, not a bug.
 
 See [`CLAUDE.md`](CLAUDE.md) for the full architecture and internals.
 

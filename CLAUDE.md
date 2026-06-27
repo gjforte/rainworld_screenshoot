@@ -10,9 +10,11 @@ Guidance for Claude Code when working in this repository.
 The whole point is correct camera-overlap handling. Rain World rooms have multiple
 overlapping camera positions. Naive screenshot mods paste each camera's full frame on
 top of the next, so anything in an overlap gets drawn twice (ghosted/doubled). This mod
-assigns **every output pixel to exactly one camera** — the nearest camera (by center)
-among those that actually cover that pixel. That produces a hard seam down the middle of
-each overlap, with no duplication.
+assigns **every output pixel to exactly one camera** — no duplication. The starting
+partition is nearest-camera (Voronoi), but each overlap boundary is then rerouted along a
+**minimum-error seam** so the cut runs through pixels where the two cameras agree (sky,
+flat ground) and detours around foreground objects where parallax makes them disagree.
+Still no blending: a pixel comes from one camera; only *where* we switch cameras moves.
 
 ## Build
 
@@ -68,8 +70,21 @@ For each camera index `i` in `room.cameraPositions`:
 4. Record `cam.pos` (the world-space draw position) alongside the pixels.
 
 Then stitch (`Stitch`): place each frame on a common pixel grid using **relative
-`cam.pos` deltas** (exact in world units), and for each canvas pixel pick the
-nearest-centered frame that covers it (lowest index wins ties → stable seam). No blending.
+`cam.pos` deltas** (exact in world units), then assign owners in two steps:
+1. `BuildOwner` — nearest-centered covering frame per pixel (lowest index wins ties). This
+   is the stable Voronoi base, and the guaranteed-safe fallback.
+2. `RefineSeams` — for each pair of overlapping frames, reroute the shared boundary into a
+   **minimum-error seam**: classify the pair as left/right (vertical seam) or top/bottom
+   (horizontal seam) by overlap-rect aspect, then a DP (`ColumnSeamRect`/`RowSeamRect`)
+   finds the least-disagreement path (`Cost` = squared RGB diff between the two cameras).
+   `RefineVertical`/`RefineHorizontal` only ever swap a pixel *between that pair*, so a
+   third camera at a 4-way corner — and any layout that doesn't fit the neighbor model —
+   keeps its Voronoi label. Diagonal-only (corner) overlaps are skipped. No blending.
+
+The seam logic was developed and validated offline against a 14-frame dump in
+`.scratch/seamproto/` (gitignored): it reproduces the game's Voronoi output exactly, then
+the min-error seam cut total seam discontinuity ~94% on ORO_FOREST_W. Re-run that proto to
+re-validate any future stitch change.
 
 ### Why we don't read the baked texture directly
 
@@ -83,8 +98,10 @@ effect fields. So we let the GPU render and read the result back, for both modes
 - `game.cameras[0]` → the active `RoomCamera`; `cam.room.cameraPositions` (`Vector2[]`).
 - Each camera's level texture maps 1:1 to world rect `[CamPos[i], CamPos[i] + 1400x800]`,
   with depth/parallax **baked into the pixels** per camera. Overlaps therefore can't align
-  perfectly for deep objects — the midline seam minimizes but can't remove this. Inherent
-  to the art, not a bug to chase.
+  perfectly for deep objects. The min-error seam hides this by cutting where the cameras
+  match instead of through objects; what it can't fix is a perfectly uniform region (e.g. a
+  flat-lit wall), where a faint tonal hairline along the seam can remain. Inherent to the
+  baked art, not a bug to chase.
 - `cam.pos` is the world coord the screen bottom-left maps to (offset from `CamPos` by
   `hDisplace+8, 18`). We place frames by `pos`, not `CamPos`.
 

@@ -228,25 +228,24 @@ namespace Screenshoot
                 log.LogWarning($"Screenshoot: canvas {cw}x{ch} exceeds the 16384 GPU texture limit; " +
                                "PNG encoding will likely fail. Try a smaller room.");
 
+            // Assign every covered pixel to exactly one camera: start from the nearest
+            // covering camera (Voronoi), then reroute each overlap boundary into a
+            // minimum-error seam so the cut runs through pixels where the two cameras
+            // agree (sky, flat ground) instead of slicing across foreground objects.
+            // Still no blending — each output pixel comes from a single camera; only
+            // *where* we switch cameras moves.
+            int[] owner = BuildOwner(frames, cw, ch);
+            RefineSeams(frames, owner, cw, ch);
+
             long covered = 0;
-            for (int i = 0; i < frames.Count; i++)
+            for (int k = 0; k < owner.Length; k++)
             {
-                Frame f = frames[i];
-                for (int y = 0; y < f.h; y++)
-                {
-                    int canvasY = f.oy + y;
-                    int srcRow = y * f.w;
-                    int dstRow = canvasY * cw;
-                    for (int x = 0; x < f.w; x++)
-                    {
-                        int canvasX = f.ox + x;
-                        if (Owns(frames, i, canvasX, canvasY))
-                        {
-                            canvas[dstRow + canvasX] = f.px[srcRow + x];
-                            covered++;
-                        }
-                    }
-                }
+                int oi = owner[k];
+                if (oi < 0) continue;
+                Frame f = frames[oi];
+                int x = k % cw, y = k / cw;
+                canvas[k] = f.px[(y - f.oy) * f.w + (x - f.ox)];
+                covered++;
             }
 
             long total = (long)cw * ch;
@@ -315,24 +314,163 @@ namespace Screenshoot
             return total;
         }
 
-        // True if frame `me` is the nearest-centered frame that covers (px,py).
-        // Iterating in index order and using strict '<' means lower index wins ties.
-        private static bool Owns(List<Frame> frames, int me, int px, int py)
+        // Nearest-covering-camera label per canvas pixel (-1 = uncovered). Iterating in
+        // index order with strict '<' keeps the lowest index on ties, so the base
+        // partition is the same stable Voronoi the mod always used. The seam refinement
+        // below only moves boundaries between genuine neighbors away from this base.
+        private static int[] BuildOwner(List<Frame> frames, int cw, int ch)
         {
-            Frame m = frames[me];
-            float md = Sq(px + 0.5f - m.cx) + Sq(py + 0.5f - m.cy);
-            for (int j = 0; j < frames.Count; j++)
+            int[] owner = new int[cw * ch];
+            int n = frames.Count;
+            for (int y = 0; y < ch; y++)
             {
-                if (j == me) continue;
-                Frame o = frames[j];
-                if (px < o.ox || px >= o.ox + o.w || py < o.oy || py >= o.oy + o.h) continue;
-                float d = Sq(px + 0.5f - o.cx) + Sq(py + 0.5f - o.cy);
-                if (d < md || (d == md && j < me)) return false;
+                int row = y * cw;
+                for (int x = 0; x < cw; x++)
+                {
+                    int best = -1; float bestD = 0f;
+                    for (int i = 0; i < n; i++)
+                    {
+                        Frame f = frames[i];
+                        if (x < f.ox || x >= f.ox + f.w || y < f.oy || y >= f.oy + f.h) continue;
+                        float dx = x + 0.5f - f.cx, dy = y + 0.5f - f.cy;
+                        float d = dx * dx + dy * dy;
+                        if (best < 0 || d < bestD) { bestD = d; best = i; }
+                    }
+                    owner[row + x] = best;
+                }
             }
-            return true;
+            return owner;
         }
 
-        private static float Sq(float v) => v * v;
+        // For every pair of overlapping frames, reroute their shared boundary into a
+        // minimum-error seam. A pair is a left/right neighbor (vertical seam) when their
+        // overlap is taller than wide, or a top/bottom neighbor (horizontal seam) when
+        // wider than tall; corner-only (diagonal) overlaps are left to the Voronoi base.
+        // Refinement only ever swaps a pixel between the two cameras of the pair, so a
+        // third camera at a 4-way corner — and any layout that doesn't fit — keeps its
+        // safe Voronoi label.
+        private static void RefineSeams(List<Frame> frames, int[] owner, int cw, int ch)
+        {
+            int n = frames.Count;
+            var vert = new List<int[]>(); // a = left  (smaller cx)
+            var horz = new List<int[]>(); // a = upper (smaller cy)
+            for (int i = 0; i < n; i++)
+                for (int j = i + 1; j < n; j++)
+                {
+                    Frame fi = frames[i], fj = frames[j];
+                    int xa = Math.Max(fi.ox, fj.ox), xb = Math.Min(fi.ox + fi.w, fj.ox + fj.w);
+                    int ya = Math.Max(fi.oy, fj.oy), yb = Math.Min(fi.oy + fi.h, fj.oy + fj.h);
+                    int ow = xb - xa, oh = yb - ya;
+                    if (ow <= 0 || oh <= 0) continue;
+                    int hMin = Math.Min(fi.h, fj.h), wMin = Math.Min(fi.w, fj.w);
+                    if (oh >= ow && oh >= hMin / 2)
+                        vert.Add(fi.cx <= fj.cx ? new[] { i, j } : new[] { j, i });
+                    else if (ow > oh && ow >= wMin / 2)
+                        horz.Add(fi.cy <= fj.cy ? new[] { i, j } : new[] { j, i });
+                }
+
+            // Columns first, then rows — matches the validated ordering.
+            foreach (int[] p in vert) RefineVertical(frames, owner, cw, p[0], p[1]);
+            foreach (int[] p in horz) RefineHorizontal(frames, owner, cw, p[0], p[1]);
+        }
+
+        // Left camera a, right camera b: a min-error vertical path (one x per row)
+        // through the overlap; pixels left of it go to a, the rest to b.
+        private static void RefineVertical(List<Frame> frames, int[] owner, int cw, int a, int b)
+        {
+            Frame fa = frames[a], fb = frames[b];
+            int xa = Math.Max(fa.ox, fb.ox), xb = Math.Min(fa.ox + fa.w, fb.ox + fb.w);
+            int ya = Math.Max(fa.oy, fb.oy), yb = Math.Min(fa.oy + fa.h, fb.oy + fb.h);
+            int[] seam = ColumnSeamRect(frames, a, b, xa, xb, ya, yb);
+            for (int y = ya; y < yb; y++)
+            {
+                int sx = seam[y - ya], row = y * cw;
+                for (int x = xa; x < xb; x++)
+                {
+                    int k = row + x;
+                    if (owner[k] == a || owner[k] == b) owner[k] = (x < sx) ? a : b;
+                }
+            }
+        }
+
+        // Upper camera a, lower camera b: a min-error horizontal path (one y per column);
+        // pixels on the smaller-y side go to a, the rest to b.
+        private static void RefineHorizontal(List<Frame> frames, int[] owner, int cw, int a, int b)
+        {
+            Frame fa = frames[a], fb = frames[b];
+            int xa = Math.Max(fa.ox, fb.ox), xb = Math.Min(fa.ox + fa.w, fb.ox + fb.w);
+            int ya = Math.Max(fa.oy, fb.oy), yb = Math.Min(fa.oy + fa.h, fb.oy + fb.h);
+            int[] seam = RowSeamRect(frames, a, b, xa, xb, ya, yb);
+            for (int x = xa; x < xb; x++)
+            {
+                int sy = seam[x - xa];
+                for (int y = ya; y < yb; y++)
+                {
+                    int k = y * cw + x;
+                    if (owner[k] == a || owner[k] == b) owner[k] = (y < sy) ? a : b;
+                }
+            }
+        }
+
+        // Minimum-error vertical seam over canvas rect [xa,xb) x [ya,yb): dynamic program
+        // top-to-bottom, each row's cut at most one pixel from the row above. Returns the
+        // crossover x for each row. Cost is how much the two cameras disagree there.
+        private static int[] ColumnSeamRect(List<Frame> frames, int a, int b, int xa, int xb, int ya, int yb)
+        {
+            int W = xb - xa, H = yb - ya;
+            double[,] M = new double[H, W];
+            int[,] back = new int[H, W];
+            for (int xi = 0; xi < W; xi++) M[0, xi] = Cost(frames, a, b, xa + xi, ya);
+            for (int yi = 1; yi < H; yi++)
+                for (int xi = 0; xi < W; xi++)
+                {
+                    double best = M[yi - 1, xi]; int bk = xi;
+                    if (xi > 0 && M[yi - 1, xi - 1] < best) { best = M[yi - 1, xi - 1]; bk = xi - 1; }
+                    if (xi < W - 1 && M[yi - 1, xi + 1] < best) { best = M[yi - 1, xi + 1]; bk = xi + 1; }
+                    M[yi, xi] = Cost(frames, a, b, xa + xi, ya + yi) + best;
+                    back[yi, xi] = bk;
+                }
+            int cur = 0; double bv = double.MaxValue;
+            for (int xi = 0; xi < W; xi++) if (M[H - 1, xi] < bv) { bv = M[H - 1, xi]; cur = xi; }
+            int[] seam = new int[H];
+            for (int yi = H - 1; yi >= 0; yi--) { seam[yi] = xa + cur; cur = back[yi, cur]; }
+            return seam;
+        }
+
+        // Minimum-error horizontal seam over canvas rect: DP left-to-right, returns the
+        // crossover y for each column.
+        private static int[] RowSeamRect(List<Frame> frames, int a, int b, int xa, int xb, int ya, int yb)
+        {
+            int W = xb - xa, H = yb - ya;
+            double[,] M = new double[W, H];
+            int[,] back = new int[W, H];
+            for (int yi = 0; yi < H; yi++) M[0, yi] = Cost(frames, a, b, xa, ya + yi);
+            for (int xi = 1; xi < W; xi++)
+                for (int yi = 0; yi < H; yi++)
+                {
+                    double best = M[xi - 1, yi]; int bk = yi;
+                    if (yi > 0 && M[xi - 1, yi - 1] < best) { best = M[xi - 1, yi - 1]; bk = yi - 1; }
+                    if (yi < H - 1 && M[xi - 1, yi + 1] < best) { best = M[xi - 1, yi + 1]; bk = yi + 1; }
+                    M[xi, yi] = Cost(frames, a, b, xa + xi, ya + yi) + best;
+                    back[xi, yi] = bk;
+                }
+            int cur = 0; double bv = double.MaxValue;
+            for (int yi = 0; yi < H; yi++) if (M[W - 1, yi] < bv) { bv = M[W - 1, yi]; cur = yi; }
+            int[] seam = new int[W];
+            for (int xi = W - 1; xi >= 0; xi--) { seam[xi] = ya + cur; cur = back[xi, cur]; }
+            return seam;
+        }
+
+        // Squared RGB disagreement between frames a and b at canvas pixel (x,y); both
+        // must cover it (callers only ask within the overlap rect).
+        private static long Cost(List<Frame> frames, int a, int b, int x, int y)
+        {
+            Frame fa = frames[a], fb = frames[b];
+            Color32 ca = fa.px[(y - fa.oy) * fa.w + (x - fa.ox)];
+            Color32 cb = fb.px[(y - fb.oy) * fb.w + (x - fb.ox)];
+            int dr = ca.r - cb.r, dg = ca.g - cb.g, db = ca.b - cb.b;
+            return (long)dr * dr + dg * dg + db * db;
+        }
 
         private static Vector2 Custom_ScreenSize()
         {
