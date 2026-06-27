@@ -9,7 +9,7 @@ namespace Screenshoot
     {
         public const string MOD_ID = "tr0z.screenshoot";
         public const string MOD_NAME = "Screenshoot";
-        public const string MOD_VERSION = "1.0.5";
+        public const string MOD_VERSION = "1.0.6";
 
         public static ScreenshotPlugin Instance;
         public static ScreenshotOptions Options;
@@ -88,8 +88,12 @@ namespace Screenshoot
                 return;
             }
 
+            // Holding either Ctrl while pressing the hotkey also dumps each individual
+            // camera frame next to the stitched image (for diagnosing seams).
+            bool dumpFrames = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
             // `clean` wins if both somehow fired on the same frame.
-            StartCoroutine(ScreenshotCapture.Run(game, cleanMode: clean));
+            StartCoroutine(ScreenshotCapture.Run(game, cleanMode: clean, dumpFrames: dumpFrames));
         }
     }
 }

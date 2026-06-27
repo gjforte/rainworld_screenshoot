@@ -35,7 +35,7 @@ namespace Screenshoot
             public Vector2 worldPos; // recorded cam.pos at capture time (diagnostics)
         }
 
-        public static IEnumerator Run(RainWorldGame game, bool cleanMode)
+        public static IEnumerator Run(RainWorldGame game, bool cleanMode, bool dumpFrames)
         {
             ScreenshotPlugin.CleanMode = cleanMode;
             ScreenshotPlugin.Capturing = true;
@@ -126,7 +126,7 @@ namespace Screenshoot
                 SavePng(canvas, cw, ch, path);
                 log.LogInfo($"Screenshoot: saved {cw}x{ch} -> {path}");
 
-                if (ScreenshotPlugin.Options.DebugDumpFrames.Value)
+                if (dumpFrames)
                 {
                     for (int i = 0; i < frames.Count; i++)
                     {

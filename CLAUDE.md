@@ -44,7 +44,9 @@ only ones that were visible) and `RestoreScene` re-shows only those. A blanket
 "show-everything" restore is what previously blacked the screen (it un-hid a full-screen
 effect overlay the game keeps hidden, painting over the world while the HUD stayed on top).
 
-Configurable in the Remix options menu (keys, settle frames, output folder, debug dump).
+Configurable in the Remix options menu (keys, settle frames, output folder). Holding either
+Ctrl while pressing a hotkey also dumps each individual camera frame next to the stitched
+image (for diagnosing seams) — passed as `dumpFrames` into `Run`; there is no checkbox.
 Output defaults to `Pictures\screenshots\` (resolved robustly across Windows/Linux; falls
 back to `RainWorld_Data\screenshots` if no Pictures/home folder is findable). The absolute
 path is logged.
@@ -109,9 +111,9 @@ effect fields. So we let the GPU render and read the result back, for both modes
 
 The game must be run manually (interactive). On the first run, capture diagnostics:
 
-1. Enable **Dump individual camera frames** in Remix options.
-2. Load a story save, stand in a room with several cameras (e.g. an Outskirts room).
-3. Press **F9**. Check `BepInEx/LogOutput.log` for the `Screenshoot:` lines:
+1. Load a story save, stand in a room with several cameras (e.g. an Outskirts room).
+2. Press **Ctrl+F9** (holding Ctrl dumps the individual camera frames too).
+3. Check `BepInEx/LogOutput.log` for the `Screenshoot:` lines:
    - `ScreenSize` vs `Screen=WxH` — **must match**; if not, the pixel↔world scale is off.
    - Per-camera `CamPos` and `pos`, and the final canvas size.
 4. Open the output folder and inspect:

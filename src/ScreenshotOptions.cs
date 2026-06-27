@@ -10,7 +10,6 @@ namespace Screenshoot
         public readonly Configurable<KeyCode> LiveModeKey;
         public readonly Configurable<int> SettleFrames;
         public readonly Configurable<string> OutputDir;
-        public readonly Configurable<bool> DebugDumpFrames;
 
         public ScreenshotOptions()
         {
@@ -27,9 +26,6 @@ namespace Screenshoot
 
             OutputDir = config.Bind("OutputDir", "",
                 new ConfigurableInfo("Folder to save PNGs in. Leave blank for Pictures\\screenshots."));
-
-            DebugDumpFrames = config.Bind("DebugDumpFrames", false,
-                new ConfigurableInfo("Also save each individual camera frame next to the stitched image (for diagnosing seams)."));
         }
 
         public override void Initialize()
@@ -62,9 +58,8 @@ namespace Screenshoot
                 new OpLabel(x + 180f, y + 4f, "Settle frames per camera"));
             y -= 44f;
 
-            tab.AddItems(
-                new OpCheckBox(DebugDumpFrames, x, y),
-                new OpLabel(x + 30f, y + 2f, "Dump individual camera frames (debug)"));
+            tab.AddItems(new OpLabel(x, y,
+                "Tip: hold Ctrl while pressing a hotkey to also save each individual camera frame (for diagnosing seams)."));
             y -= 44f;
 
             tab.AddItems(new OpLabel(x, y, "Output folder (blank = Pictures\\screenshots):"));

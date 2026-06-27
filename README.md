@@ -25,8 +25,9 @@ In-game, while in a room:
 
 PNGs are saved to `Pictures\screenshots\` by default.
 
-The hotkeys, output folder, capture quality (settle frames), and a debug per-frame dump are
-all configurable in the **Remix** mod options menu.
+The hotkeys, output folder, and capture quality (settle frames) are configurable in the
+**Remix** mod options menu. Hold **Ctrl** while pressing a hotkey to also save each
+individual camera frame next to the stitched image (for diagnosing seams).
 
 ## Install
 
